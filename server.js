@@ -2,6 +2,7 @@ const express = require('express');
 const exphbs = require('express-handlebars');
 const http = require('http');
 const { Server } = require('socket.io');
+const mongoose = require('mongoose');
 
 const productsRouter = require('./routes/products');
 const cartsRouter = require('./routes/carts');
@@ -12,9 +13,6 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = 8080;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
 
 // Configurar Handlebars
 app.engine('handlebars', exphbs.engine());
@@ -78,4 +76,17 @@ io.on('connection', (socket) => {
         console.log('user disconnected');
     });
 });
+
+// Conexión a MongoDB
+mongoose.connect('mongodb://localhost:27017/mi_base_de_datos', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+.then(() => {
+    console.log('Connected to MongoDB');
+    server.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+})
+.catch((err) => console.error('Could not connect to MongoDB...', err));
 

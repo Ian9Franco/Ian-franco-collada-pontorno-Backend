@@ -1,17 +1,23 @@
 const express = require('express');
 const router = express.Router();
+const Product = require('../models/product');
 
-let products = [
-    { name: 'Producto 1', price: 100 },
-    { name: 'Producto 2', price: 200 }
-];
-
-router.get('/home', (req, res) => {
-    res.render('home', { title: 'Lista de Productos', products });
+router.get('/home', async (req, res) => {
+    try {
+        const products = await Product.find();
+        res.render('home', { title: 'Lista de Productos', products });
+    } catch (error) {
+        res.status(500).send('Error al cargar los productos');
+    }
 });
 
-router.get('/realtimeproducts', (req, res) => {
-    res.render('realTimeProducts', { title: 'Productos en Tiempo Real', products });
+router.get('/realtimeproducts', async (req, res) => {
+    try {
+        const products = await Product.find();
+        res.render('realTimeProducts', { title: 'Productos en Tiempo Real', products });
+    } catch (error) {
+        res.status(500).send('Error al cargar los productos');
+    }
 });
 
 module.exports = router;

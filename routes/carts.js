@@ -1,53 +1,94 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
-const path = './data/carts.json';
-const productsPath = './data/products.json';
-
-// Utilidad para leer y escribir archivos JSON
-const readData = (path) => JSON.parse(fs.readFileSync(path, 'utf-8'));
-const writeData = (path, data) => fs.writeFileSync(path, JSON.stringify(data, null, 2));
+const mongoose = require('mongoose'); // Importa mongoose si no lo has hecho
+const Cart = require('../models/cart');
+const Product = require('../models/product');
 
 // POST /api/carts/
-router.post('/', (req, res) => {
-    const carts = readData(path);
-    const newCart = {
-        id: carts.length ? carts[carts.length - 1].id + 1 : 1,
-        products: []
-    };
-    carts.push(newCart);
-    writeData(path, carts);
-    res.status(201).json(newCart);
+router.post('/', async (req, res) => {
+    try {
+        const newCart = new Cart({ products: [] });
+        await newCart.save();
+        res.status(201).json(newCart);
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
 });
 
 // GET /api/carts/:cid
-router.get('/:cid', (req, res) => {
-    const carts = readData(path);
-    const cart = carts.find(c => c.id == req.params.cid);
-    cart ? res.json(cart) : res.status(404).send('Cart not found');
+router.get('/:cid', async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.cid)) {
+        return res.status(400).send('Invalid Cart ID');
+    }
+    try {
+        const cart = await Cart.findById(req.params.cid).populate('products.product');
+        cart ? res.json(cart) : res.status(404).send('Cart not found');
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
 });
 
 // POST /api/carts/:cid/product/:pid
-router.post('/:cid/product/:pid', (req, res) => {
-    const carts = readData(path);
-    const products = readData(productsPath);
-    const cart = carts.find(c => c.id == req.params.cid);
-    if (cart) {
-        const product = products.find(p => p.id == req.params.pid);
-        if (product) {
-            const cartProduct = cart.products.find(p => p.product == req.params.pid);
+router.post('/:cid/product/:pid', async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.cid) || !mongoose.Types.ObjectId.isValid(req.params.pid)) {
+        return res.status(400).send('Invalid Cart or Product ID');
+    }
+    try {
+        const cart = await Cart.findById(req.params.cid);
+        const product = await Product.findById(req.params.pid);
+
+        if (cart && product) {
+            const cartProduct = cart.products.find(p => p.product.toString() === req.params.pid);
             if (cartProduct) {
                 cartProduct.quantity += 1;
             } else {
                 cart.products.push({ product: req.params.pid, quantity: 1 });
             }
-            writeData(path, carts);
+            await cart.save();
             res.json(cart);
         } else {
-            res.status(404).send('Product not found');
+            res.status(404).send('Cart or Product not found');
         }
-    } else {
-        res.status(404).send('Cart not found');
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+// DELETE /api/carts/:cid/products/:pid
+router.delete('/:cid/products/:pid', async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.cid) || !mongoose.Types.ObjectId.isValid(req.params.pid)) {
+        return res.status(400).send('Invalid Cart or Product ID');
+    }
+    try {
+        const cart = await Cart.findById(req.params.cid);
+        if (cart) {
+            cart.products = cart.products.filter(p => p.product.toString() !== req.params.pid);
+            await cart.save();
+            res.json(cart);
+        } else {
+            res.status(404).send('Cart not found');
+        }
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+// DELETE /api/carts/:cid
+router.delete('/:cid', async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.cid)) {
+        return res.status(400).send('Invalid Cart ID');
+    }
+    try {
+        const cart = await Cart.findById(req.params.cid);
+        if (cart) {
+            cart.products = [];
+            await cart.save();
+            res.json(cart);
+        } else {
+            res.status(404).send('Cart not found');
+        }
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
     }
 });
 
